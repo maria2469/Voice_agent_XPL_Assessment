@@ -10,6 +10,9 @@ class Settings:
     # Cohere API key for fallback embeddings
     COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 
+    # Moonshot Kimi API key
+    MOONSHOT_API_KEY = os.getenv("MOONSHOT_API_KEY")
+
     # Database URL
     DATABASE_URL = os.getenv("DATABASE_URL")
 

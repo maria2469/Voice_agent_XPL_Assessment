@@ -20,7 +20,7 @@ from db.vector_store import get_vector_store_sync
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
-DEFAULT_CSV    = "sunmarke_firecrawl.csv"
+DEFAULT_CSV    = "sunmarke_accordion_scraped.csv"
 CHUNK_SIZE     = 600      # characters per chunk (tune to your embedding model)
 CHUNK_OVERLAP  = 80       # overlap to preserve cross-chunk context
 BATCH_SIZE     = 50       # docs per .add_documents() call (avoids rate limits)
@@ -47,6 +47,21 @@ def classify(text: str) -> str:
             return category
     return "general"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# UTILS
+# ─────────────────────────────────────────────────────────────────────────────
+def parse_crawled_at(value: str) -> datetime:
+    """
+    Safely parse a datetime string from CSV and return a naive datetime.
+    If empty or invalid, return current naive datetime.
+    """
+    if not value:
+        return datetime.now()
+    try:
+        dt = datetime.fromisoformat(value)
+        return dt.replace(tzinfo=None)  # make naive
+    except Exception:
+        return datetime.now()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # LOAD CSV
@@ -64,7 +79,6 @@ def load_csv(path: str) -> list[dict]:
     print(f"📂  Loaded {len(rows)} valid pages from {path}")
     return rows
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # CHUNK + BUILD DOCUMENTS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -78,11 +92,11 @@ def build_documents(rows: list[dict], chunk_size: int, chunk_overlap: int) -> li
     docs = []
     for row in rows:
         content     = row.get("content",     "").strip()
-        url      = row.get("url",         "")
+        url         = row.get("url",         "")
         title       = row.get("title",       "")
         description = row.get("description", "")
         language    = row.get("language",    "")
-        crawled_at  = row.get("crawled_at",  datetime.now(timezone.utc).isoformat())
+        crawled_at  = parse_crawled_at(row.get("crawled_at", ""))
 
         chunks = splitter.split_text(content)
 
@@ -104,7 +118,6 @@ def build_documents(rows: list[dict], chunk_size: int, chunk_overlap: int) -> li
     print(f"✂️   Split into {len(docs)} chunks  "
           f"(avg {sum(len(d.page_content) for d in docs)//max(len(docs),1)} chars each)")
     return docs
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # INGEST IN BATCHES
@@ -141,7 +154,6 @@ def ingest(csv_path: str = DEFAULT_CSV,
         print(f"    [{pct:5.1f}%]  {done}/{total} chunks stored")
 
     print(f"\n✅  Ingestion complete — {total} chunks in PGVector table 'sunmarke_firecrawl_docs'\n")
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CLI

@@ -1,3 +1,8 @@
 .env
 sunmarke_firecrawl.csv
 __pycache__/
+sunmarke_firecrawl_1.csv
+sunmarke_manual_scrape.csv
+ingestion/manual_scraping.py
+sunmarke_accordion_scraped.csv
+venv/

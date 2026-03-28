@@ -42,7 +42,7 @@ class LoopingHybridEmbedding:
         if not self.cohere:
             print("⚠️ Cohere SDK not installed, fallback unavailable.")
 
-        self.current = "google"
+        self.current = "cohere"
         self.batch_size = batch_size
 
     # ------------------ Sync embedding ------------------
@@ -70,6 +70,10 @@ class LoopingHybridEmbedding:
         print(f"✅ Finished embedding {len(all_embeddings)} documents.")
         return all_embeddings
 
+    def embed_query(self, text: str) -> List[float]:
+        """Embed a single query string — reuses embed_documents under the hood."""
+        return self.embed_documents([text])[0]
+
     # ------------------ Async embedding ------------------
     async def aembed_documents(self, texts: List[str]) -> List[List[float]]:
         """
@@ -78,6 +82,11 @@ class LoopingHybridEmbedding:
         """
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.embed_documents, texts)
+
+    async def aembed_query(self, text: str) -> List[float]:
+        """Async wrapper for single query embedding — required by langchain_postgres v2."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.embed_query, text)
 
 
 # ------------------ Factory ------------------

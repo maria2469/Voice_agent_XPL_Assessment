@@ -1,25 +1,22 @@
-from langchain_core.vectorstores import PGVector
-from langchain.embeddings import GoogleEmbeddingService  # or replace with GeminiEmbeddingService if you have Gemini API
-from core.config import settings
+# db/vector_store.py
+from langchain_postgres.v2 import PGVectorStore
+from db.pg_engine import pg_engine
+from services.embedding import get_embedding_service
 
-TABLE_NAME = "sunmarke_docs"
+TABLE_NAME = "sunmarke_firecrawl_docs"  # your existing collection
 
-def get_vector_store():
+def get_vector_store_sync():
     """
-    Returns a PGVector store instance aligned with LangChain docs.
-
-    Features:
-    - Add/delete documents
-    - Similarity search
-    - Metadata filtering
+    Returns a synchronous PGVectorStore connected to the already stored vectors.
+    No async embeddings are called.
     """
-    # Embedding model
-    embedding_function = GoogleEmbeddingService(model="gemini-embedding-001", dimension=768)  # Replace with GeminiEmbeddingService() if using Gemini
+    embeddings = get_embedding_service()  # your LoopingHybridEmbedding instance
 
-    # PGVector initialization
-    store = PGVector(
-        connection_string=settings.DATABASE_URL,  # e.g., "postgresql+psycopg2://user:pass@host:port/db"
-        embedding_function=embedding_function,
-        collection_name=TABLE_NAME
+    store = PGVectorStore(
+        engine=pg_engine,              # SQLAlchemy engine
+        collection_name=TABLE_NAME,    # existing collection
+        embedding_service=embeddings,  # sync embeddings
+        use_async=False                # ⚡ FORCE sync mode
     )
+
     return store

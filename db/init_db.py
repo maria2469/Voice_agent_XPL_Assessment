@@ -6,7 +6,7 @@ Gemini text-embedding-004 outputs 768-dim vectors.
 from langchain_postgres import PGEngine, Column
 from core.config import settings
 
-TABLE_NAME = "sunmarke_firecrawl_docs"
+TABLE_NAME = "sunmarke_firecrawl_1_docs"
 VECTOR_SIZE = 1024
 
 def main():
