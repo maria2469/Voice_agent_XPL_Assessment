@@ -10,3 +10,10 @@ deepseek.mp3
 gemini.mp3
 input.wav
 kimi.mp3
+UI/sunmarke-voice-agent/node_modules/
+UI/sunmarke-voice-agent/dist/
+UI/sunmarke-voice-agent/build/
+UI/sunmarke-voice-agent/.next/
+
+
+tmp_audio/
