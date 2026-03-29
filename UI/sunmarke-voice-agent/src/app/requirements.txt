@@ -1,0 +1,68 @@
+# -----------------------------
+# 🚀 Core Backend
+# -----------------------------
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+
+# -----------------------------
+# 🔗 LangChain Core
+# -----------------------------
+langchain==0.3.7
+langchain-core==0.3.17
+langchain-community==0.3.7
+
+# -----------------------------
+# 🧠 Embeddings / Vector DB
+# -----------------------------
+pgvector==0.3.2
+psycopg2-binary==2.9.9
+
+# Optional (if using Cohere embeddings)
+cohere==5.6.2
+
+# Optional (if using OpenAI embeddings)
+openai==1.51.0
+
+# -----------------------------
+# 🤖 LLM APIs
+# -----------------------------
+requests==2.32.3
+
+# (Optional if using Google Gemini)
+google-generativeai==0.8.3
+
+# -----------------------------
+# 🔊 Audio Processing
+# -----------------------------
+pydub==0.25.1
+soundfile==0.12.1
+numpy==1.26.4
+
+# Speech-to-text (choose ONE depending on your setup)
+
+# OpenAI Whisper (local)
+openai-whisper==20231117
+
+# OR faster whisper (recommended for performance)
+faster-whisper==1.0.3
+
+# -----------------------------
+# 🔊 Text-to-Speech
+# -----------------------------
+gtts==2.5.3
+
+# Optional advanced TTS
+# elevenlabs==1.9.0
+
+# -----------------------------
+# ⚙️ Utilities
+# -----------------------------
+python-dotenv==1.0.1
+pydantic==2.9.2
+
+# -----------------------------
+# 🧪 Dev / Debugging
+# -----------------------------
+tqdm==4.66.5
+loguru==0.7.2
