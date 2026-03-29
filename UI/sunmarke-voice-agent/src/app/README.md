@@ -120,74 +120,122 @@ Usage:
     console.log("Streaming response:", data);
   }}
 />
-⚡ How Streaming Works
-User records voice
-Audio sent to backend
-Backend transcribes audio
-RAG retrieves context
-All LLMs run in parallel
-Each model response is streamed immediately
-Frontend receives + plays audio instantly
-🧠 RAG Pipeline
-Vector Store: PGVector
-Retrieval: MMR (Max Marginal Relevance)
-Top-K: 5 documents
-Prompt Engineering:
-Friendly assistant tone
-No hallucinations
-Context-only answering
-🤖 Supported Models
-Model	Provider
-Gemini	Google
-Kimi	Moonshot AI
-DeepSeek	DeepSeek
-🔊 Audio Pipeline
-Input:
-Microphone → WAV (16kHz)
-Processing:
-Speech-to-Text (Whisper / Faster-Whisper)
-Output:
-Text-to-Speech (gTTS)
-⚡ Performance Optimizations
-✅ Parallel LLM execution (ThreadPool)
-✅ Streaming (SSE)
-✅ Shared context (retrieval once)
-✅ Non-blocking UI updates
-❗ Common Issues & Fixes
-1. ❌ onData is not a function
 
-✔️ Fix:
+🔷 High-Level Flow
+User (Voice Input)
+        ↓
+Frontend (Next.js + Web Audio API)
+        ↓
+FastAPI Backend (Streaming SSE)
+        ↓
+Speech-to-Text (Whisper / STT)
+        ↓
+RAG Pipeline
+   ├── Vector DB (PGVector)
+   ├── Retriever (MMR)
+   └── Prompt Builder
+        ↓
+Parallel LLM Calls
+   ├── Gemini
+   ├── DeepSeek
+   └── Kimi (OpenRouter)
+        ↓
+Streaming Response (as each finishes)
+        ↓
+Text-to-Speech (TTS)
+        ↓
+Audio + Text streamed to UI
+🔷 Key Design Decisions
+1. Single Retrieval, Multi-LLM
+Documents are retrieved once
+Shared across all LLMs
+✅ Reduces latency + cost
+2. Parallel LLM Execution
+Uses ThreadPoolExecutor
+Each model runs independently
+✅ Fastest model responds first
+3. Streaming (SSE)
+Backend streams results:
+data: {model: "kimi", ...}
+data: {model: "deepseek", ...}
+Frontend processes chunk-by-chunk
+✅ No waiting for all models
+4. Streaming TTS
+As soon as a model finishes:
+TTS is generated
+Audio is streamed back
+✅ Real-time voice feedback
+5. Model Routing Strategy
+Model	Role
+Gemini	Fast / general
+DeepSeek	Best cost-performance
+Kimi	Reasoning / long answers
+📄 2. Assumptions & Limitations
+🔷 Assumptions
+Average query:
+Input tokens: ~1,000
+Output tokens: ~300
+3 LLMs called per request
+Audio duration: ~5–10 seconds
+TTS cost is negligible (local or cheap API)
+🔷 Limitations
+1. 🚫 Rate Limits
+Gemini free tier → easily exhausted
+Kimi (Moonshot/OpenRouter) → strict rate limits
+DeepSeek → more stable
+2. ⚠️ Cost Multiplication
+You are calling 3 LLMs per query
+Cost = 3× compared to single-model systems
+3. ⚠️ Latency Variance
+Some models (Kimi reasoning) slower
+Streaming mitigates this
+4. ⚠️ Token Explosion (Hidden Cost)
+Some models use extra “thinking tokens”
+Real cost may be higher than expected
+5. ⚠️ No Smart Routing (Yet)
 
-<VoiceRecorder onData={(data) => console.log(data)} />
-2. ❌ Audio not playing
-Check /audio/{file} endpoint
-Ensure correct URL (localhost:8000)
-3. ❌ Rate limit errors
-Gemini / Kimi free tier limits
-Add retry or switch model
-4. ❌ ffmpeg error
+Currently:
 
-Install ffmpeg:
+ALL models are called every time
 
-https://ffmpeg.org/download.html
-🔐 Security Notes
-Do NOT expose API keys in frontend
-Use .env for secrets
-Restrict CORS in production
-🚀 Future Improvements
-🔄 Streaming token-level responses (not full text)
-⚡ Async FastAPI (instead of threads)
-🧠 Memory / conversation history
-📊 Model ranking (best answer selection)
-🗣️ Voice cloning TTS
-🤝 Contributing
+Better future:
 
-Pull requests are welcome!
+Route based on query complexity
+📄 3. Estimated Cost per 1,000 Queries
+🔷 Latest Pricing (2026)
+🟢 Gemini Flash
+Input: ~$0.10 / 1M tokens
+Output: ~$0.40 / 1M tokens
+🔵 DeepSeek V3.2
+Input: ~$0.28 / 1M
+Output: ~$0.42 / 1M
+🟣 OpenRouter (Kimi / similar class)
+Rough estimate: ~$0.50–$2 / 1M tokens (varies)
+🔷 Cost Per Query (Estimate)
 
-📜 License
+Assume:
 
-MIT License
-
-👨‍💻 Author
+Input: 1,000 tokens
+Output: 300 tokens
+🧮 Per Model Cost
+Gemini
+= (1000 * 0.10/1M) + (300 * 0.40/1M)
+≈ $0.00010 + $0.00012
+≈ $0.00022
+DeepSeek
+≈ $0.00028 + $0.00013
+≈ $0.00041
+Kimi (OpenRouter estimate)
+≈ $0.001 – $0.002
+🔷 Total Per Query (3 Models)
+≈ 0.00022 + 0.00041 + 0.0015
+≈ $0.0021 per query
+🔷 Cost per 1,000 Queries
+≈ $2.1 per 1000 queries
+🔷 Realistic Range
+Scenario	Cost
+Optimized (2 models)	$1.2 / 1000
+Current (3 models)	~$2–3 / 1000
+Worst case (long outputs)	$5+ / 1000
 
 Built by a passionate AI engineer 🚀
