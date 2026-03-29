@@ -1,10 +1,16 @@
 from db.vector_store import get_vector_store_sync
 from langchain_core.prompts import PromptTemplate
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
+import uuid
 
 from services.llms.gemini import get_llm as get_gemini_llm
 from services.llms.kimi import get_llm as get_kimi_llm
 from services.llms.deepseek import get_llm as get_deepseek_llm
+from services.voice_handling.voice_output import text_to_speech
+
+
+TEMP_DIR = "temp_audio"
 
 
 class RAGService:
@@ -13,9 +19,10 @@ class RAGService:
 
         self.vector_store = get_vector_store_sync()
 
+        # ⚡ Reduced k for faster retrieval
         self.retriever = self.vector_store.as_retriever(
             search_type="mmr",
-            search_kwargs={"k": 5},
+            search_kwargs={"k": 3},   # 🔥 faster than 5
         )
 
         # 🚀 Load ALL LLMs once
@@ -50,7 +57,7 @@ Answer:
             input_variables=["context", "question"],
         )
 
-        print("✅ RAG Ready (Multi-LLM Mode)")
+        print("✅ RAG Ready (Streaming Mode)")
 
     # -------------------
     # Helpers
@@ -60,7 +67,6 @@ Answer:
 
     def _normalize_response(self, response):
         try:
-            # Gemini fix
             if hasattr(response, "content"):
                 if isinstance(response.content, list):
                     return " ".join(
@@ -76,47 +82,40 @@ Answer:
             return str(response)
 
     # -------------------
-    # 🔥 PARALLEL MULTI-RAG
+    # 🔥 STREAMING MULTI-RAG
     # -------------------
-    def query_multi(self, user_query: str) -> dict:
+    def query_multi_stream(self, user_query: str):
         print("🔍 Retrieving documents...")
 
-        # ✅ Step 1: Retrieve ONCE
+        # ✅ Retrieve once
         docs = self.retriever.invoke(user_query)
-
-        # ✅ Step 2: Shared context
         context = self._format_docs(docs)
 
-        # ✅ Step 3: Shared prompt
         formatted_prompt = self.prompt.format(
             context=context,
             question=user_query
         )
 
-        print("🤖 Running LLMs in parallel...")
+        print("🤖 Running LLMs + TTS in parallel (streaming)...")
 
-        results = {}
-
-        def call_llm(name, llm):
+        def call_llm_and_tts(name, llm):
             try:
+                # 🔥 LLM
                 raw = llm.invoke(formatted_prompt)
-                clean = self._normalize_response(raw)
-                return name, clean
-            except Exception as e:
-                return name, f"Error: {str(e)}"
+                answer = self._normalize_response(raw)
 
-        # 🚀 PARALLEL EXECUTION
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = [
-                executor.submit(call_llm, name, llm)
-                for name, llm in self.llms.items()
-            ]
+                # 🔥 TTS immediately
+                audio_file_name = f"{name}_{uuid.uuid4()}.mp3"
+                audio_file_path = os.path.join(TEMP_DIR, audio_file_name)
 
-            for future in as_completed(futures):
-                name, answer = future.result()
+                text_to_speech(answer, audio_file_path)
 
-                results[name] = {
-                    "answer": answer,
+                print(f"✅ {name} done")
+
+                return {
+                    "model": name,
+                    "text": answer,
+                    "audioUrl": f"http://localhost:8000/audio/{audio_file_name}",
                     "sources": [
                         {
                             "title": doc.metadata.get("title"),
@@ -125,15 +124,32 @@ Answer:
                         }
                         for doc in docs
                     ],
+                    "error": None if answer else "No answer",
                 }
 
-        print("✅ All LLMs responded")
+            except Exception as e:
+                return {
+                    "model": name,
+                    "text": "",
+                    "audioUrl": None,
+                    "sources": [],
+                    "error": str(e),
+                }
 
-        return results
+        # 🚀 Parallel execution
+        with ThreadPoolExecutor(max_workers=len(self.llms)) as executor:
+            futures = [
+                executor.submit(call_llm_and_tts, name, llm)
+                for name, llm in self.llms.items()
+            ]
+
+            # 🔥 STREAM results as they complete
+            for future in as_completed(futures):
+                yield future.result()
 
 
 # -------------------
-# Runtime Test
+# 🧪 Test
 # -------------------
 if __name__ == "__main__":
     rag = RAGService()
@@ -143,8 +159,6 @@ if __name__ == "__main__":
         if q.lower() in ["exit", "quit"]:
             break
 
-        results = rag.query_multi(q)
-
-        for model, res in results.items():
-            print(f"\n===== {model.upper()} =====")
-            print(res["answer"])
+        for res in rag.query_multi_stream(q):
+            print(f"\n===== {res['model'].upper()} =====")
+            print(res["text"])
